@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Plan {
+  FREE
+  STANDARD
+  PRO
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  UNSPECIFIED
+}
+
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  passwordHash  String
+  university    University? @relation(fields: [universityId], references: [id])
+  universityId  String?
+  emailVerified Boolean     @default(false)
+  plan          Plan        @default(FREE)
+  planExpiresAt DateTime?
+  gender        Gender      @default(UNSPECIFIED)
+  department    String?
+  year          Int?
+  hobbies       String[]    @default([])
+  banned        Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  deviceLogs    DeviceLog[]
+  reportsMade   Report[]    @relation("reportsMade")
+  reportsReceived Report[]  @relation("reportsReceived")
+
+  verificationTokens VerificationToken[]  @relation("userVerificationTokens")
+}
+
+model University {
+  id        String  @id @default(cuid())
+  name      String
+  domain    String  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+}
+
+model DeviceLog {
+  id         String   @id @default(cuid())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  ipAddress  String
+  userAgent  String
+  createdAt  DateTime @default(now())
+}
+
+model Report {
+  id             String   @id @default(cuid())
+  reporter       User     @relation("reportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
+  reporterId     String
+  reportedUser   User     @relation("reportsReceived", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  reportedUserId String
+  roomId         String
+  reason         String
+  createdAt      DateTime @default(now())
+  resolved       Boolean  @default(false)
+  actionTaken    String?
+}
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  user      User     @relation("userVerificationTokens", fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+}
+
