@@ -11,8 +11,11 @@ export async function sendVerificationEmail({ to, verifyUrl }: VerificationEmail
   const pass = process.env.SMTP_PASS;
   
   if (!host || !user || !pass) {
-    console.warn("[Email] ⚠️ Missing SMTP credentials in .env. Falling back to console logging.");
-    console.log("[Email] Verification email", { to, verifyUrl });
+    console.log("----------------------------------------------------------------");
+    console.warn("[Email] ⚠️ SMTP credentials missing in .env!");
+    console.log("[Email] To: ", to);
+    console.log("[Email] Link: ", verifyUrl);
+    console.log("----------------------------------------------------------------");
     return;
   }
 
@@ -37,7 +40,7 @@ export async function sendVerificationEmail({ to, verifyUrl }: VerificationEmail
     html: `
       <h2>Welcome to Ethi Uni Chat!</h2>
       <p>Click the link below to verify your email address:</p>
-      <a href="${verifyUrl}" style="display:inline-block;padding:10px 20px;background:#4f46e5;color:white;text-decoration:none;border-radius:5px;">
+      <a href="${verifyUrl}" style="display:inline-block;padding:10px 20px;background:#B0C4DE;color:white;text-decoration:none;border-radius:5px;">
         Verify Email
       </a>
       <p>Or paste this link into your browser:<br/>${verifyUrl}</p>

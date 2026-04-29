@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { logAnalyticsEvent, AnalyticsEventType } from "@/lib/analytics";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type SearchParams = Promise<{ token?: string }> | { token?: string };
 
@@ -36,6 +38,11 @@ async function verifyToken(token: string | undefined) {
     data: { emailVerified: true },
   });
 
+  logAnalyticsEvent(AnalyticsEventType.USER_VERIFIED, {
+    userId: record.userId,
+    universityId: record.user.universityId || undefined,
+  });
+
   await prisma.verificationToken.update({
     where: { token },
     data: { usedAt: new Date() },
@@ -55,15 +62,28 @@ export default async function VerifyPage({
   const result = await verifyToken(token);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 dark:bg-black">
-      <main className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm dark:bg-zinc-950">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+    <div 
+      className="flex min-h-screen items-center justify-center px-4 transition-colors"
+      style={{ backgroundColor: "var(--background)" }}
+    >
+      <div className="fixed top-4 right-4 z-[100]">
+        <ThemeToggle />
+      </div>
+
+      <main 
+        className="w-full max-w-md rounded-2xl p-8 border transition-colors shadow-xl"
+        style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--card-border)" }}
+      >
+        <h1 
+          className="text-2xl font-bold tracking-tight"
+          style={{ color: "var(--text-heading)" }}
+        >
           Email verification
         </h1>
-        <p className="mt-4 text-sm text-red-600 dark:text-red-400">{result.message}</p>
-        <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-4 text-sm text-red-500 font-medium">{result.message}</p>
+        <p className="mt-4 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
           If your link has expired, you can request a new verification email from the
-          login or settings page (feature TODO).
+          login or settings page.
         </p>
       </main>
     </div>

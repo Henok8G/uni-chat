@@ -1,5 +1,18 @@
 import { Plan, Gender } from "@prisma/client";
 import crypto from "crypto";
+import { prisma } from "../lib/prisma";
+import { logInfo, logError, logWarn } from "../lib/logger";
+import { logAnalyticsEvent, AnalyticsEventType } from "../lib/analytics";
+
+/**
+ * ── PHASE 12: Scaling, Reliability & Horizontal Scaling ──
+ * This matching implementation assumes sticky sessions at the load balancer
+ * so that all events for a given user's Socket.IO connection are handled
+ * by the same Node instance.
+ * 
+ * Redis adapter synchronizes rooms/events, but the queues below are node-local.
+ * ──────────────────────────────────────────────────────────
+ */
 
 export type MatchingPreferences = {
   preferredGender?: Gender | "ANY";
@@ -25,6 +38,7 @@ export type Room = {
   socketIdB: string;
   userIdA: string;
   userIdB: string;
+  chatSessionId: string;
 };
 
 // Global in-memory state
@@ -93,7 +107,7 @@ export function getRoomBySocket(socketId: string): Room | undefined {
   return undefined;
 }
 
-export function removeUser(socketId: string) {
+export function removeUser(socketId: string, reason: "NEXT" | "DISCONNECT" | "REPORTED" | "BANNED" = "DISCONNECT") {
   removeFromQueueOnly(socketId);
   socketUserMap.delete(socketId);
   
@@ -101,30 +115,62 @@ export function removeUser(socketId: string) {
   const room = getRoomBySocket(socketId);
   if (room) {
     rooms.delete(room.roomId);
+
+    logInfo("Matching", "ChatSession closing", { chatSessionId: room.chatSessionId, reason });
+    prisma.chatSession.update({
+      where: { id: room.chatSessionId },
+      data: {
+        endedAt: new Date(),
+        endedReason: reason
+      }
+    }).catch((err: unknown) => logError("Matching", "Failed to close ChatSession", { error: String(err) }));
+    
+    logAnalyticsEvent(AnalyticsEventType.SESSION_ENDED, {
+      sessionId: room.chatSessionId,
+      properties: { reason }
+    });
   }
   return room; // Returned so the socket handler can notify the partner
 }
 
-function createRoom(userA: SearchingUser, userB: SearchingUser, emitMatch: (roomId: string, socketA: string, socketB: string) => void) {
+function createRoom(userA: SearchingUser, userB: SearchingUser, emitMatch: (roomId: string, socketA: string, socketB: string, chatSessionId: string) => void) {
   removeFromQueueOnly(userA.socketId);
   removeFromQueueOnly(userB.socketId);
 
   const roomId = crypto.randomUUID();
+  const chatSessionId = crypto.randomUUID();
+  
   const room: Room = {
     roomId,
     socketIdA: userA.socketId,
     socketIdB: userB.socketId,
     userIdA: userA.userId,
     userIdB: userB.userId,
+    chatSessionId,
   };
   rooms.set(roomId, room);
 
-  emitMatch(roomId, userA.socketId, userB.socketId);
+  logInfo("Matching", "ChatSession creating", { chatSessionId, roomId, userAId: userA.userId, userBId: userB.userId });
+  prisma.chatSession.create({
+    data: {
+      id: chatSessionId,
+      userAId: userA.userId,
+      userBId: userB.userId,
+      planA: userA.plan,
+      planB: userB.plan,
+    }
+  }).catch((err: unknown) => logError("Matching", "Failed to create ChatSession", { error: String(err) }));
+
+  logAnalyticsEvent(AnalyticsEventType.SESSION_STARTED, {
+    sessionId: chatSessionId,
+  });
+
+  emitMatch(roomId, userA.socketId, userB.socketId, chatSessionId);
 }
 
 export function enqueueUser(
   user: SearchingUser,
-  emitMatch: (roomId: string, socketA: string, socketB: string) => void,
+  emitMatch: (roomId: string, socketA: string, socketB: string, chatSessionId: string) => void,
   emitNoMatch: (socketId: string) => void
 ) {
   // Ensure we don't duplicate
@@ -176,8 +222,8 @@ export function enqueueUser(
   }
 }
 
-export function handleNext(socketId: string, emitMatch: (rId: string, sA: string, sB: string) => void, emitNoMatch: (sId: string) => void) {
-  const room = removeUser(socketId); // leaves the room and queue
+export function handleNext(socketId: string, emitMatch: (rId: string, sA: string, sB: string, cSId: string) => void, emitNoMatch: (sId: string) => void) {
+  const room = removeUser(socketId, "NEXT"); // leaves the room and queue
   const user = socketUserMap.get(socketId);
   if (user) {
     // Re-queue
@@ -209,3 +255,54 @@ export function handleProFallback(socketId: string, choice: "ANYONE" | "WAIT") {
   }
   return user;
 }
+
+/**
+ * runWatchdog
+ * 
+ * Periodic cleanup task designed to clean up any orphaned connections,
+ * stale timeouts or mismatched state that wasn't cleanly caught by disconnect
+ * events (e.g. process crashes, network partitions avoiding ping intervals).
+ * It expects to be called passing the global socket.io Server instance.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function runWatchdog(io: any) {
+  const allSockets = Array.from(io.sockets.sockets.keys());
+  
+  // 1. Clean queue of disconnected sockets
+  for (let i = queue.length - 1; i >= 0; i--) {
+    if (!allSockets.includes(queue[i].socketId)) {
+      logWarn("Watchdog", "Evicting stale socket from queue", { socketId: queue[i].socketId });
+      removeFromQueueOnly(queue[i].socketId);
+    }
+  }
+
+  // 2. Clean socketUserMap holding dead connections
+  for (const socketId of socketUserMap.keys()) {
+    if (!allSockets.includes(socketId)) {
+      logWarn("Watchdog", "Evicting stale socket from socketUserMap", { socketId });
+      socketUserMap.delete(socketId);
+      removeFromQueueOnly(socketId);
+    }
+  }
+
+  // 3. Clean up rooms where BOTH sockets are fully dead natively in state
+  for (const [roomId, room] of rooms.entries()) {
+    const aDead = !allSockets.includes(room.socketIdA);
+    const bDead = !allSockets.includes(room.socketIdB);
+
+    if (aDead && bDead) {
+      logWarn("Watchdog", "Evicting entirely dead room", { roomId, chatSessionId: room.chatSessionId });
+      rooms.delete(roomId);
+      
+      // Close in database if it wasn't gracefully
+      prisma.chatSession.update({
+        where: { id: room.chatSessionId },
+        data: {
+          endedAt: new Date(),
+          endedReason: "DISCONNECT",
+        }
+      }).catch((err: unknown) => logError("Watchdog", "Failed DB cleanup for stale ChatSession", { error: String(err) }));
+    }
+  }
+}
+

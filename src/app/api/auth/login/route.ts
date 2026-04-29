@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyPassword, createSession } from "@/lib/auth";
 import { recordDeviceLog } from "@/lib/deviceLog";
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 function getClientIp(request: NextRequest): string | null {
   return (
@@ -17,9 +17,6 @@ function getClientIp(request: NextRequest): string | null {
 function getUserAgent(request: NextRequest): string | null {
   return request.headers.get("user-agent");
 }
-
-export const dynamic = 'force-dynamic';
-
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();

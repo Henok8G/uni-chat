@@ -1,0 +1,17 @@
+{
+  "name": "ladder.io",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "live-server --host=127.0.0.1 --port=5173 --entry-file=index.html --watch=.",
+    "start": "live-server --host=127.0.0.1 --port=8000 --entry-file=index.html --watch=.",
+    "test": "echo \"No tests configured\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}

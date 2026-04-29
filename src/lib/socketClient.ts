@@ -1,25 +1,36 @@
 import { io, Socket } from "socket.io-client";
 
 let socket: Socket | null = null;
-let initPromise: Promise<void> | null = null;
 
-export async function getSocket(): Promise<Socket> {
+/**
+ * Returns a singleton Socket.IO client connected to the app's Socket.IO server.
+ *
+ * Phase 11: Socket.IO now runs on the SAME origin/port as the Next.js app
+ * (served by the custom server.ts entry point). No separate port needed.
+ *
+ * Configuration:
+ *   NEXT_PUBLIC_SOCKET_URL – Override the Socket.IO server URL if needed
+ *                            (e.g. for split-origin setups). Defaults to
+ *                            window.location.origin (same origin, same port).
+ *
+ * Transports: polling first (always works), upgrades to websocket automatically.
+ * This ensures compatibility behind proxies that may not support WS upgrade
+ * on first connection.
+ */
+export function getSocket(): Socket {
   if (socket) return socket;
 
-  if (!initPromise) {
-    initPromise = fetch("/api/socket").then(() => {
-      // Connect to the separate Socket.io server on port 3001
-      const port = process.env.NEXT_PUBLIC_SOCKET_PORT || 3001;
-      const host = window.location.hostname;
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const url = `${protocol}//${host}:${port}`;
-      
-      socket = io(url, { 
-        transports: ["websocket"] 
-      });
-    });
-  }
+  // Default to same origin (same port as Next.js) if no override is set.
+  // Set NEXT_PUBLIC_SOCKET_URL for split-origin or CDN deployments.
+  const url =
+    (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SOCKET_URL) ||
+    (typeof window !== "undefined" ? window.location.origin : "");
 
-  await initPromise;
-  return socket!;
+  socket = io(url, {
+    path: "/socket.io",
+    // Start with polling for proxy compatibility; upgrades to WS automatically.
+    transports: ["polling", "websocket"],
+  });
+
+  return socket;
 }

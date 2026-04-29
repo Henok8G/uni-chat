@@ -1,5 +1,6 @@
 import { getSessionUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { AppMenu } from "@/components/AppMenu";
 
 export default async function SettingsPage() {
   const user = await getSessionUser();
@@ -18,7 +19,7 @@ export default async function SettingsPage() {
           preferences.
         </p>
       </main>
+      <AppMenu />
     </div>
   );
 }
-
