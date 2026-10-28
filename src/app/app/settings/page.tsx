@@ -1,10 +1,19 @@
-// TODO(interface changes): let PRO users customize preferred department, year, and hobbies from their profile/settings.
+import { permanentRedirect } from "next/navigation";
 
-export default function SettingsPage() {
-  return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold">Pro Settings</h1>
-      <p className="mt-4 text-zinc-600">Advanced matching filters will be available in a future update.</p>
-    </div>
-  );
+export default async function LegacyAppSettingsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedParams = searchParams ? await searchParams : {};
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(resolvedParams)) {
+    if (Array.isArray(value)) {
+      value.forEach((v) => query.append(key, v));
+    } else if (value !== undefined) {
+      query.set(key, value);
+    }
+  }
+  const queryString = query.toString();
+  permanentRedirect(queryString ? `/settings?${queryString}` : "/settings");
 }

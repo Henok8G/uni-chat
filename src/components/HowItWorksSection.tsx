@@ -28,8 +28,8 @@ const StepCard: React.FC<StepCardProps> = ({
     viewport={{ once: true, margin: "-50px" }}
     transition={{ duration: 0.6, delay: index * 0.2 }}
     className={cn(
-      "relative rounded-3xl border p-8 transition-all duration-300 ease-in-out",
-      "hover:scale-105 hover:shadow-xl group"
+      "relative rounded-3xl border p-8 transition-colors duration-300 ease-in-out shadow-sm",
+      "hover:border-zinc-400/50 dark:hover:border-zinc-600/50 group"
     )}
     style={{
       backgroundColor: "var(--card-bg)",

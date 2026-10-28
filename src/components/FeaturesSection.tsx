@@ -35,7 +35,7 @@ function FeatureCard({ icon, title, description, bullets, delay = 0 }: FeatureCa
 
       <div className="relative z-10">
         <div 
-          className="mb-8 w-14 h-14 rounded-2xl flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3"
+          className="mb-8 w-14 h-14 rounded-2xl flex items-center justify-center transition-colors duration-300"
           style={{ 
             backgroundColor: "color-mix(in srgb, var(--theme-accent) 15%, transparent)", 
             color: "var(--theme-accent)" 

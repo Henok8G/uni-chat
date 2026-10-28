@@ -16,13 +16,13 @@ const testimonials = [
   {
     tempId: 1,
     testimonial: "Setting up my profile was instant. The super clean interface made it effortless to start chatting within minutes.",
-    by: "Natnael Dereje, Engineering at AASTU",
+    by: "Natnael Dereje, Engineering at AAU (AAiT 5 Kilo)",
     imgSrc: "/images/ethiopian_male_video_chat.png"
   },
   {
     tempId: 2,
     testimonial: "The support is amazing — I had a question about verification and got a response right away. Really impressed.",
-    by: "Saman Girma, Business at ASTU",
+    by: "Saman Girma, Business & Economics at AAU (FBE)",
     imgSrc: "https://randomuser.me/api/portraits/women/3.jpg"
   },
   {
@@ -34,7 +34,7 @@ const testimonials = [
   {
     tempId: 4,
     testimonial: "The video quality is crystal clear. We studied together for finals across three different cities — zero lag.",
-    by: "Hiwot Alemu, IT at ASTU",
+    by: "Hiwot Alemu, Computer Science at AAU (4 Kilo)",
     imgSrc: "/images/ethiopian_female_student.png"
   },
   {
@@ -52,7 +52,7 @@ const testimonials = [
   {
     tempId: 7,
     testimonial: "I made friends from campuses I didn't even know existed. This platform genuinely broadens your world.",
-    by: "Rahel Solomon, Psychology at ASTU",
+    by: "Rahel Solomon, Social Sciences at AAU (6 Kilo)",
     imgSrc: "/images/ethiopian_students_library.png"
   },
   {
@@ -82,14 +82,15 @@ const TestimonialCard: React.FC<TestimonialCardProps> = ({
     <div
       onClick={() => handleMove(position)}
       className={cn(
-        "absolute left-1/2 top-1/2 cursor-pointer border-2 p-8 transition-all duration-500 ease-in-out",
+        "absolute left-1/2 top-1/2 cursor-pointer border-2 p-8 pb-24 transition-all duration-500 ease-in-out",
         isCenter 
           ? "z-10 bg-[var(--theme-accent)] text-white border-[var(--theme-accent)]" 
           : "z-0 bg-[var(--surface-alt)] text-[var(--foreground)] border-[var(--border)] hover:border-[var(--theme-accent)]/50"
       )}
       style={{
         width: cardSize,
-        height: cardSize,
+        minHeight: cardSize,
+        height: "auto",
         clipPath: `polygon(50px 0%, calc(100% - 50px) 0%, 100% 50px, 100% 100%, calc(100% - 50px) 100%, 50px 100%, 0 100%, 0 0)`,
         transform: `
           translate(-50%, -50%) 
@@ -158,7 +159,7 @@ export const StaggerTestimonials: React.FC = () => {
   useEffect(() => {
     const updateSize = () => {
       const { matches } = window.matchMedia("(min-width: 640px)");
-      setCardSize(matches ? 365 : 290);
+      setCardSize(matches ? 365 : 320);
     };
 
     updateSize();

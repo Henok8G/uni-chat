@@ -45,16 +45,11 @@ export const InteractiveFooter = () => {
     }, 3000);
   };
 
-  const popAnimation = {
-    whileHover: { scale: 1.05 },
-    whileTap: { scale: 0.95 },
-    transition: { type: "spring" as const, stiffness: 400, damping: 17 }
-  };
+  const popAnimation = {};
 
   const textPopAnimation = {
-    whileHover: { scale: 1.05, originX: 0, color: "#10b981" }, // emerald-500
-    whileTap: { scale: 0.95 },
-    transition: { type: "spring" as const, stiffness: 400, damping: 17 }
+    whileHover: { color: "#10b981" },
+    transition: { duration: 0.2 }
   };
 
   return (
@@ -184,12 +179,12 @@ export const InteractiveFooter = () => {
       </div>
       
       <div className="container mx-auto px-6 py-6 border-t flex flex-col md:flex-row items-center justify-between gap-4" style={{ borderColor: "var(--card-border)" }}>
-         <motion.div className="text-xs font-medium tracking-wider uppercase" style={{ color: "var(--muted)" }} {...popAnimation}>
+         <div className="text-xs font-medium tracking-wider uppercase" style={{ color: "var(--muted)" }}>
             © 2026 Ethi-Uni-Chat. All rights reserved.
-         </motion.div>
-         <motion.div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--muted)" }} {...popAnimation}>
-            Crafted with <Heart className="w-3 h-3 text-red-500 fill-red-500 animate-pulse" /> by You
-         </motion.div>
+         </div>
+         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--muted)" }}>
+            Crafted with <Heart className="w-3 h-3 text-red-500 fill-red-500" /> by You
+         </div>
       </div>
     </footer>
   );

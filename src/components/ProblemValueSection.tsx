@@ -25,7 +25,7 @@ export function ProblemValueSection() {
         >
           <h2 
             id="problem-value-heading"
-            className="text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6 flex flex-col items-start gap-2"
+            className="text-3xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-6 flex flex-col items-start gap-2"
             style={{ color: "var(--text-heading)" }}
           >
             <span className="overflow-hidden inline-block py-1">

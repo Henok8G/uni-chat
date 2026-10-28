@@ -104,15 +104,20 @@ const STYLES = `
 
 /* Giant Background Text Masking */
 .footer-giant-bg-text {
-  font-size: 20vw;
+  font-size: 25vw;
   line-height: 0.75;
   font-weight: 900;
   letter-spacing: -0.05em;
   color: transparent;
   -webkit-text-stroke: 1px color-mix(in srgb, var(--foreground) 5%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--foreground) 10%, transparent) 0%, transparent 60%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--foreground) 15%, transparent) 0%, transparent 60%);
   -webkit-background-clip: text;
   background-clip: text;
+}
+@media (min-width: 768px) {
+  .footer-giant-bg-text {
+    font-size: 20vw;
+  }
 }
 
 /* Metallic Text Glow */
@@ -285,7 +290,7 @@ export function CinematicFooter() {
 
           <div
             ref={giantTextRef}
-            className="footer-giant-bg-text absolute -bottom-[5vh] left-1/2 -translate-x-1/2 whitespace-nowrap z-0 pointer-events-none select-none"
+            className="footer-giant-bg-text absolute bottom-8 md:-bottom-[5vh] left-1/2 -translate-x-1/2 whitespace-nowrap z-0 pointer-events-none select-none"
           >
             UNI-CHAT
           </div>
@@ -343,13 +348,13 @@ export function CinematicFooter() {
 
           <div className="relative z-20 w-full pb-8 px-6 md:px-12 flex flex-col md:flex-row items-center justify-between gap-6">
             
-            <div className="text-[var(--muted)] text-[10px] md:text-xs font-semibold tracking-widest uppercase order-2 md:order-1">
+            <div className="text-[var(--muted)] text-xs md:text-xs font-semibold tracking-widest uppercase order-2 md:order-1 font-medium">
               © {new Date().getFullYear()} Uni-Chat. All rights reserved.
             </div>
 
             <div className="footer-glass-pill px-6 py-3 rounded-full flex items-center gap-2 order-1 md:order-2 cursor-default border-[var(--border)]/50">
-              <span className="text-[var(--muted)] text-[10px] md:text-xs font-bold uppercase tracking-widest">crafted bcuz of lack of girls</span>
-              <span className="animate-footer-heartbeat text-sm md:text-base">🙌</span>
+              <span className="text-[var(--muted)] text-xs md:text-xs font-bold uppercase tracking-widest font-medium">crafted bcuz of lack of girls</span>
+              <span className="animate-footer-heartbeat text-base md:text-base">🙌</span>
             </div>
 
             <MagneticButton

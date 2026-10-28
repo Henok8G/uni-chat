@@ -19,11 +19,7 @@ const landingMenuItems = [
     label: "Testimonials",
     href: "#testimonials"
   },
-  {
-    icon: CreditCard,
-    label: "Subscription",
-    href: "#pricing"
-  },
+
   {
     icon: LogIn,
     label: "Log In",

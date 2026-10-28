@@ -47,5 +47,5 @@ export function getRandomThemeColor(gender: string): string {
  */
 export function getThemeGradient(color: string, gender?: string | null): string {
   const direction = gender === "FEMALE" ? "135deg" : "225deg";
-  return `linear-gradient(${direction}, #ffffff 0%, ${color}60 50%, #ffffff 100%)`;
+  return `linear-gradient(${direction}, var(--background) var(--gradient-bg-start, 0%), color-mix(in srgb, ${color} var(--theme-opacity, 38%), transparent) var(--gradient-center-start, 50%), color-mix(in srgb, ${color} var(--theme-opacity, 38%), transparent) var(--gradient-center-end, 50%), var(--background) var(--gradient-bg-end, 100%))`;
 }

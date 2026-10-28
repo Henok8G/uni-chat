@@ -32,12 +32,18 @@ type ReportView = {
   chatSession: { startedAt: Date; endedAt: Date | null; endedReason: string | null } | null;
 };
 
-export function AdminPanel() {
-  const [activeTab, setActiveTab] = useState<"SEARCH" | "REPORTS" | "ANALYTICS">("SEARCH");
+export function AdminPanel({ initialTab = "SEARCH" }: { initialTab?: "SEARCH" | "REPORTS" | "ANALYTICS" } = {}) {
+  const [activeTab, setActiveTab] = useState<"SEARCH" | "REPORTS" | "ANALYTICS">(initialTab);
   const [emailQuery, setEmailQuery] = useState("");
   const [user, setUser] = useState<AdminUserView | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Moderation state
   const [reports, setReports] = useState<ReportView[]>([]);
@@ -369,7 +375,7 @@ export function AdminPanel() {
             <div className="space-y-4">
               {reports.map((report) => (
                 <div key={report.id} className="rounded-xl border border-red-200 bg-white p-6 shadow-sm dark:border-red-900/30 dark:bg-zinc-950">
-                  <div className="flex justify-between items-start mb-4 border-b border-zinc-100 pb-4 dark:border-zinc-800">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-4 border-b border-zinc-100 pb-4 dark:border-zinc-800">
                     <div>
                       <span className="inline-block rounded-md bg-red-100 px-2 py-1 text-xs font-bold text-red-800 dark:bg-red-900/50 dark:text-red-200 mb-2">
                         {report.reasonCategory}
@@ -381,7 +387,7 @@ export function AdminPanel() {
                         Reported By: {report.reporter.email} ({report.reporter.university?.name || "No Uni"})
                       </p>
                     </div>
-                    <div className="text-right text-xs text-zinc-500">
+                    <div className="text-left sm:text-right text-xs text-zinc-500">
                       <p>{new Date(report.createdAt).toLocaleString()}</p>
                       <p className="mt-1 font-semibold">Total Reports against user: {report.reportedUser._count.reportsReceived}</p>
                     </div>
@@ -411,25 +417,25 @@ export function AdminPanel() {
                       onChange={(e) => setResolutionNotes(prev => ({ ...prev, [report.id]: e.target.value }))}
                       className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
                     />
-                    <div className="flex gap-2 justify-end">
+                    <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
                       <button
                         onClick={() => handleResolveReport(report.id, "DISMISS")}
                         disabled={resolvingReportId === report.id}
-                        className="rounded-md bg-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                        className="rounded-md bg-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 text-center"
                       >
                         Dismiss False Alarm
                       </button>
                       <button
                         onClick={() => handleResolveReport(report.id, "WARN")}
                         disabled={resolvingReportId === report.id}
-                        className="rounded-md bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-200 dark:hover:bg-amber-900/80"
+                        className="rounded-md bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-200 dark:hover:bg-amber-900/80 text-center"
                       >
                         Warn / Acknowledge
                       </button>
                       <button
                         onClick={() => handleResolveReport(report.id, "BAN")}
                         disabled={resolvingReportId === report.id}
-                        className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+                        className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 text-center"
                       >
                         BAN USER
                       </button>

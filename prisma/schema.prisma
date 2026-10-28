@@ -9,28 +9,145 @@ datasource db {
 }
 
 model User {
-  id                 String              @id @default(cuid())
-  email              String              @unique
-  passwordHash       String
-  universityId       String?
-  emailVerified      Boolean             @default(false)
-  plan               Plan                @default(FREE)
-  planExpiresAt      DateTime?
-  gender             Gender              @default(UNSPECIFIED)
-  banned             Boolean             @default(false)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  department         String?
-  hobbies            String[]            @default([])
-  year               Int?
-  themeColor         String?
-  sessionsA          ChatSession[]       @relation("sessionsA")
-  sessionsB          ChatSession[]       @relation("sessionsB")
-  deviceLogs         DeviceLog[]
-  reportsReceived    Report[]            @relation("reportsReceived")
-  reportsMade        Report[]            @relation("reportsMade")
-  university         University?         @relation(fields: [universityId], references: [id])
-  verificationTokens VerificationToken[] @relation("userVerificationTokens")
+  id                    String                 @id @default(cuid())
+  email                 String                 @unique
+  passwordHash          String
+  universityId          String?
+  emailVerified         Boolean                @default(false)
+  plan                  Plan                   @default(FREE)
+  planExpiresAt         DateTime?
+  gender                Gender                 @default(UNSPECIFIED)
+  banned                Boolean                @default(false)
+  role                  UserRole               @default(STUDENT)
+  postReadyStatus       PostReadyStatus        @default(NOT_APPLIED)
+  postReadyAppliedAt    DateTime?
+  postReadyReviewedAt   DateTime?
+  postReadyReviewedBy   String?
+  postReadyNotes        String?
+  warningCount          Int                    @default(0)
+  restrictedUntil       DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  avatarUrl             String?
+  department            String?
+  hobbies               String[]               @default([])
+  year                  Int?
+  themeColor            String?
+  visibility            ProfileVisibility      @default(PUBLIC)
+  bio                   String?
+  displayName           String?
+  sessionsA             ChatSession[]          @relation("sessionsA")
+  sessionsB             ChatSession[]          @relation("sessionsB")
+  deviceLogs            DeviceLog[]
+  reportsReceived       Report[]               @relation("reportsReceived")
+  reportsMade           Report[]               @relation("reportsMade")
+  reportsHandled        Report[]               @relation("reportsHandled")
+  university            University?            @relation(fields: [universityId], references: [id])
+  verificationTokens    VerificationToken[]    @relation("userVerificationTokens")
+  adminRoleAssignments AdminRoleAssignment[]  @relation("adminUser")
+  grantedRoleAssignments AdminRoleAssignment[] @relation("grantedByAdmin")
+  postReadyApplications PostReadyApplication[] @relation("applicant")
+  reviewedApplications  PostReadyApplication[] @relation("applicationReviewer")
+  posts                 Post[]                 @relation("postAuthor")
+  reviewedPosts         Post[]                 @relation("postReviewer")
+  moderationActionsTaken ModerationAction[]    @relation("adminModerator")
+  moderationActionsReceived ModerationAction[] @relation("targetUserModeration")
+  auditLogs             AuditLog[]             @relation("adminAuditLogs")
+  ownedGroups           Group[]                @relation("groupOwner")
+  groupMemberships      GroupMember[]          @relation("userGroupMemberships")
+  clubApplications      Club[]                 @relation("clubApplicant")
+  reviewedClubs         Club[]                 @relation("clubReviewer")
+  clubMemberships       ClubMember[]           @relation("userClubMemberships")
+  notifications         Notification[]         @relation("userNotifications")
+  authoredBroadcasts    Broadcast[]            @relation("broadcastAuthor")
+  reviewedBroadcasts    Broadcast[]            @relation("broadcastReviewer")
+  departmentDelegates   DepartmentDelegate[]   @relation("userDepartmentDelegates")
+  assignedDelegates     DepartmentDelegate[]   @relation("delegateAssigner")
+  verifiedDepartments   Department[]           @relation("departmentVerifier")
+  matchingAnomalies     MatchingAnomaly[]
+  friendships           Friendship[]           @relation("userFriendships")
+  friendOf              Friendship[]           @relation("friendOfUser")
+  sentChatMessages      ChatMessage[]          @relation("sentChatMessages")
+  receivedChatMessages  ChatMessage[]          @relation("receivedChatMessages")
+  sentFriendRequests    FriendRequest[]        @relation("sentFriendRequests")
+  receivedFriendRequests FriendRequest[]       @relation("receivedFriendRequests")
+}
+
+model Club {
+  id           String        @id @default(cuid())
+  name         String
+  description  String
+  category     String?
+  logoUrl      String?
+  bannerUrl    String?
+  status       ClubStatus    @default(PENDING)
+  applicantId  String
+  reviewedById String?
+  reviewedAt   DateTime?
+  rejectReason String?
+  isRestricted Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  applicant    User          @relation("clubApplicant", fields: [applicantId], references: [id], onDelete: Cascade)
+  reviewedBy   User?         @relation("clubReviewer", fields: [reviewedById], references: [id])
+  members      ClubMember[]
+  posts        Post[]        @relation("clubPosts")
+
+  @@index([status, createdAt])
+  @@index([applicantId])
+}
+
+model ClubMember {
+  id       String         @id @default(cuid())
+  clubId   String
+  userId   String
+  role     ClubMemberRole @default(MEMBER)
+  joinedAt DateTime       @default(now())
+  club     Club           @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  user     User           @relation("userClubMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clubId, userId])
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  type        NotificationType
+  title       String
+  message     String
+  isRead      Boolean          @default(false)
+  isUrgent    Boolean          @default(false)
+  link        String?
+  broadcastId String?
+  createdAt   DateTime         @default(now())
+  user        User             @relation("userNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  broadcast   Broadcast?       @relation("broadcastNotifications", fields: [broadcastId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead, createdAt])
+  @@index([broadcastId])
+}
+
+enum ClubStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum ClubMemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum NotificationType {
+  SYSTEM
+  POST_READY_APPROVAL
+  CLUB_APPROVAL
+  MODERATION
+  URGENT
+  ADMIN_ALERT
+  FRIEND_REQUEST
 }
 
 model University {
@@ -51,26 +168,174 @@ model DeviceLog {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model AdminRoleAssignment {
+  id          String            @id @default(cuid())
+  userId      String
+  role        UserRole
+  permissions AdminPermission[] @default([])
+  grantedById String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  user        User              @relation("adminUser", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy   User              @relation("grantedByAdmin", fields: [grantedById], references: [id])
+
+  @@unique([userId, role])
+}
+
+model PostReadyApplication {
+  id           String          @id @default(cuid())
+  userId       String
+  status       PostReadyStatus @default(PENDING)
+  reason       String?
+  sampleLink   String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  notes        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  user         User            @relation("applicant", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy   User?           @relation("applicationReviewer", fields: [reviewedById], references: [id])
+
+  @@index([status, createdAt])
+}
+
+model Post {
+  id           String      @id @default(cuid())
+  title        String
+  body         String
+  contentType  ContentType @default(STUDENT_POST)
+  authorId     String
+  authorType   AuthorType  @default(STUDENT)
+  clubId       String?
+  status       PostStatus  @default(DRAFT)
+  isPinned     Boolean     @default(false)
+  isFeatured   Boolean     @default(false)
+  publishedAt  DateTime?
+  scheduledAt  DateTime?
+  reviewedById String?
+  reviewedAt   DateTime?
+  rejectReason String?
+  eventCategory   String?
+  startDate       DateTime?
+  endDate         DateTime?
+  location        String?
+  organizer       String?
+  registrationUrl String?
+  imageUrl        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  author       User        @relation("postAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  reviewedBy   User?       @relation("postReviewer", fields: [reviewedById], references: [id])
+  club         Club?       @relation("clubPosts", fields: [clubId], references: [id], onDelete: SetNull)
+  departmentId String?
+  department   Department? @relation("departmentPosts", fields: [departmentId], references: [id], onDelete: SetNull)
+  reports      Report[]    @relation("reportedPost")
+
+  @@index([status, publishedAt])
+  @@index([authorId])
+  @@index([contentType])
+  @@index([departmentId])
+  @@index([eventCategory])
+  @@index([startDate])
+}
+
+model ModerationAction {
+  id           String               @id @default(cuid())
+  userId       String
+  adminId      String
+  actionType   ModerationActionType
+  reason       String
+  notes        String?
+  durationDays Int?
+  reportId     String?
+  createdAt    DateTime             @default(now())
+  targetUser   User                 @relation("targetUserModeration", fields: [userId], references: [id], onDelete: Cascade)
+  admin        User                 @relation("adminModerator", fields: [adminId], references: [id])
+  report       Report?              @relation(fields: [reportId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+model AuditLog {
+  id         String     @id @default(cuid())
+  adminId    String
+  action     String
+  targetType TargetType
+  targetId   String?
+  details    Json?
+  ipAddress  String?
+  createdAt  DateTime   @default(now())
+  admin      User       @relation("adminAuditLogs", fields: [adminId], references: [id])
+
+  @@index([adminId, createdAt])
+  @@index([targetType, targetId])
+}
+
+model Group {
+  id           String        @id @default(cuid())
+  name         String
+  description  String?
+  ownerId      String
+  isRestricted Boolean       @default(false)
+  frozenUntil  DateTime?
+  freezeReason String?
+  isDelisted   Boolean       @default(false)
+  isArchived   Boolean       @default(false)
+  archivedAt   DateTime?
+  category     String?
+  campus       String?       @default("All AAU Campuses")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  owner        User          @relation("groupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members      GroupMember[]
+  reports      Report[]      @relation("reportedGroup")
+  chatMessages ChatMessage[] @relation("groupChatMessages")
+
+  @@index([ownerId])
+  @@index([isArchived, isDelisted])
+}
+
+model GroupMember {
+  id       String   @id @default(cuid())
+  groupId  String
+  userId   String
+  role     String   @default("MEMBER")
+  joinedAt DateTime @default(now())
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User     @relation("userGroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+}
+
 model Report {
-  id               String         @id @default(cuid())
+  id               String           @id @default(cuid())
   reporterId       String
   reportedUserId   String
+  targetType       TargetType       @default(USER)
+  targetId         String?
+  postId           String?
+  groupId          String?
   roomId           String?
   reason           String?
-  createdAt        DateTime       @default(now())
-  resolved         Boolean        @default(false)
+  createdAt        DateTime         @default(now())
+  resolved         Boolean          @default(false)
   actionTaken      String?
   chatSessionId    String?
   details          String?
   handledByAdminId String?
-  reasonCategory   ReasonCategory @default(OTHER)
+  reasonCategory   ReasonCategory   @default(OTHER)
   resolutionNotes  String?
-  status           ReportStatus   @default(OPEN)
-  chatSession      ChatSession?   @relation(fields: [chatSessionId], references: [id])
-  reportedUser     User           @relation("reportsReceived", fields: [reportedUserId], references: [id], onDelete: Cascade)
-  reporter         User           @relation("reportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
+  status           ReportStatus     @default(OPEN)
+  chatSession      ChatSession?     @relation(fields: [chatSessionId], references: [id])
+  reportedUser     User             @relation("reportsReceived", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  reporter         User             @relation("reportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
+  handledByAdmin   User?            @relation("reportsHandled", fields: [handledByAdminId], references: [id])
+  reportedPost     Post?            @relation("reportedPost", fields: [postId], references: [id])
+  reportedGroup    Group?           @relation("reportedGroup", fields: [groupId], references: [id])
+  moderationActions ModerationAction[]
 
   @@index([status, createdAt])
+  @@index([targetType, targetId])
 }
 
 model ChatSession {
@@ -82,15 +347,72 @@ model ChatSession {
   endedReason SessionEndedReason?
   ipA         String?
   ipB         String?
-  planA       Plan                @default(FREE)
-  planB       Plan                @default(FREE)
-  userA       User                @relation("sessionsA", fields: [userAId], references: [id], onDelete: Cascade)
-  userB       User                @relation("sessionsB", fields: [userBId], references: [id], onDelete: Cascade)
-  reports     Report[]
+  planA           Plan                @default(FREE)
+  planB           Plan                @default(FREE)
+  messagesCount   Int                 @default(0)
+  isCollaborative Boolean             @default(false)
+  userA           User                @relation("sessionsA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB           User                @relation("sessionsB", fields: [userBId], references: [id], onDelete: Cascade)
+  reports         Report[]
 
   @@index([startedAt])
   @@index([userAId])
   @@index([userBId])
+}
+
+model Friendship {
+  id        String   @id @default(cuid())
+  userId    String
+  friendId  String
+  createdAt DateTime @default(now())
+
+  user   User @relation("userFriendships", fields: [userId], references: [id], onDelete: Cascade)
+  friend User @relation("friendOfUser", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+  @@index([userId])
+  @@index([friendId])
+}
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String?
+  groupId    String?
+  text       String
+  createdAt  DateTime @default(now())
+  isRead     Boolean? @default(false)
+
+  sender   User   @relation("sentChatMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User?  @relation("receivedChatMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  group    Group? @relation("groupChatMessages", fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, createdAt])
+  @@index([senderId, receiverId, createdAt])
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+
+model FriendRequest {
+  id         String              @id @default(cuid())
+  senderId   String
+  receiverId String
+  status     FriendRequestStatus @default(PENDING)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  sender   User @relation("sentFriendRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("receivedFriendRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@index([receiverId, status])
+  @@index([senderId, status])
+  @@index([createdAt])
 }
 
 model VerificationToken {
@@ -119,6 +441,91 @@ model AnalyticsEvent {
   @@index([universityId])
 }
 
+enum UserRole {
+  STUDENT
+  ADMIN
+  SUPER_ADMIN
+  MODERATOR
+  CONTENT_ADMIN
+  ORG_ADMIN
+}
+
+enum AdminPermission {
+  ALL
+  MANAGE_USERS
+  MANAGE_ROLES
+  REVIEW_POST_READY
+  MANAGE_CONTENT
+  MODERATE_REPORTS
+  VIEW_AUDIT_LOGS
+  MANAGE_CLUBS
+  MANAGE_GROUPS
+  MANAGE_DEPARTMENTS
+  MANAGE_MATCHING
+  MANAGE_BROADCASTS
+}
+
+enum PostReadyStatus {
+  NOT_APPLIED
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  MORE_INFO_REQUESTED
+}
+
+enum ContentType {
+  ANNOUNCEMENT
+  EVENT
+  OPPORTUNITY
+  CLUB_POST
+  STUDENT_POST
+}
+
+enum AuthorType {
+  STUDENT
+  CLUB
+  DEPARTMENT
+  ADMIN
+  TEACHER
+}
+
+enum PostStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+  REJECTED
+  ARCHIVED
+}
+
+enum ModerationActionType {
+  WARNING
+  RESTRICTION
+  SUSPENSION
+  BAN
+  UNBAN
+  DISMISS
+}
+
+enum TargetType {
+  USER
+  POST
+  GROUP
+  CLUB
+  CHAT_SESSION
+  COMMENT
+  DEPARTMENT
+  BROADCAST
+}
+
+enum ProfileVisibility {
+  PUBLIC
+  CAMPUS
+  PRIVATE
+}
+
 enum Plan {
   FREE
   STANDARD
@@ -137,6 +544,12 @@ enum ReasonCategory {
   HARASSMENT
   SPAM
   HATE
+  FAKE_ACCOUNT
+  SCAM
+  MISLEADING_INFO
+  IMPERSONATION
+  INAPPROPRIATE_CONTENT
+  SUSPICIOUS_ACTIVITY
   OTHER
 }
 
@@ -155,3 +568,159 @@ enum SessionEndedReason {
   BANNED
   ERROR
 }
+
+model Department {
+  id                     String               @id @default(cuid())
+  name                   String
+  code                   String               @unique
+  category               DepartmentCategory   @default(ACADEMIC)
+  campus                 String               @default("4 Kilo Campus")
+  collegeAffiliation     String?
+  description            String?
+  status                 DepartmentStatus     @default(ACTIVE)
+  isVerified             Boolean              @default(false)
+  verificationProvenance String?
+  verifiedById           String?
+  verifiedAt             DateTime?
+  emergencyBroadcasts    Boolean              @default(false)
+  pinnedFeedNoPreMod     Boolean              @default(false)
+  studentDirectQA        Boolean              @default(false)
+  iconType               String               @default("building")
+  foundingYear           Int?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  verifiedBy             User?                @relation("departmentVerifier", fields: [verifiedById], references: [id])
+  delegates              DepartmentDelegate[]
+  posts                  Post[]               @relation("departmentPosts")
+
+  @@index([category, status])
+  @@index([campus])
+}
+
+model DepartmentDelegate {
+  id                    String      @id @default(cuid())
+  departmentId          String
+  userId                String
+  role                  String      @default("Faculty Member")
+  badge                 String      @default("Announce")
+  canPublish            Boolean     @default(true)
+  canEmergencyBroadcast Boolean     @default(false)
+  canBypassModeration   Boolean     @default(false)
+  status                String      @default("ACTIVE")
+  assignedById          String?
+  assignedAt            DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  department            Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  user                  User        @relation("userDepartmentDelegates", fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy            User?       @relation("delegateAssigner", fields: [assignedById], references: [id])
+
+  @@unique([departmentId, userId])
+  @@index([userId])
+  @@index([departmentId, status])
+}
+
+enum DepartmentCategory {
+  ACADEMIC
+  ADMIN
+  FACULTY_UNIT
+  GOVERNANCE
+}
+
+enum DepartmentStatus {
+  ACTIVE
+  INACTIVE
+  PENDING_VERIFICATION
+}
+
+model MatchingConfig {
+  id                        String   @id @default("active")
+  version                   Int      @default(1)
+  crossGenderCooldown       Boolean  @default(false)
+  proximityBiasWeight       Int      @default(50) // 0 to 100
+  dailyMatchCap             Int      @default(5)  // 3, 5, 10
+  freshmanMentorshipEnabled Boolean  @default(true)
+  academicWeight            Int      @default(40)
+  projectWeight             Int      @default(30)
+  mentorshipWeight          Int      @default(20)
+  hobbiesWeight             Int      @default(10)
+  algorithmModel            String   @default("Rule-Based Heuristic v1.0 (Cosine Hobbies & Dept Matrix)")
+  updatedById               String?
+  updatedAt                 DateTime @updatedAt
+  createdAt                 DateTime @default(now())
+}
+
+model MatchingAnomaly {
+  id          String   @id @default(cuid())
+  alertCode   String
+  userId      String?
+  sessionId   String?
+  description String
+  throttled   Boolean  @default(false)
+  actionTaken String
+  isDismissed Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([isDismissed, createdAt])
+  @@index([userId])
+}
+
+model Broadcast {
+  id               String            @id @default(cuid())
+  title            String
+  body             String
+  severity         BroadcastSeverity @default(INFORMATIONAL)
+  status           BroadcastStatus   @default(DRAFT)
+  audienceScope    AudienceScope     @default(ALL)
+  targetDepartment String?
+  targetCohort     Int?
+  targetCampus     String?
+  deepLink         String?           @default("/")
+
+  authorId         String
+  reviewedById     String?
+  reviewedAt       DateTime?
+  rejectionReason  String?
+
+  sentAt           DateTime?
+  recipientCount   Int               @default(0)
+  failureCount     Int               @default(0)
+
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  author           User              @relation("broadcastAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  reviewedBy       User?             @relation("broadcastReviewer", fields: [reviewedById], references: [id])
+  notifications    Notification[]    @relation("broadcastNotifications")
+
+  @@index([status, createdAt])
+  @@index([authorId])
+}
+
+enum BroadcastSeverity {
+  INFORMATIONAL
+  IMPORTANT
+  EMERGENCY
+}
+
+enum BroadcastStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENDING
+  SENT
+  REJECTED
+  CANCELLED
+}
+
+enum AudienceScope {
+  ALL
+  DEPARTMENT
+  COHORT
+  CAMPUS
+}
+

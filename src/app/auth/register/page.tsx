@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { hashPassword } from "@/lib/auth";
+import { hashPassword, getSessionUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { sendVerificationEmail } from "@/lib/email";
 import { Plan, Gender } from "@prisma/client";
 import { cookies } from "next/headers";
@@ -7,6 +8,7 @@ import { randomBytes } from "crypto";
 import { AnimatedRegisterForm } from "@/components/auth/AnimatedRegisterForm";
 import { logAnalyticsEvent, AnalyticsEventType } from "@/lib/analytics";
 import { getRandomThemeColor } from "@/lib/themes";
+import { getRandomAvatar } from "@/lib/avatars";
 
 type FormState =
   | { status: "idle" }
@@ -48,8 +50,11 @@ async function registerAction(prevState: FormState, formData: FormData): Promise
   }
 
   const emailDomain = email.split("@")[1];
-  if (!emailDomain || emailDomain !== university.domain) {
-    return { status: "error", message: `Email must use the ${university.domain} domain.` };
+  if (!emailDomain || emailDomain !== "aau.edu.et" || university.domain !== "aau.edu.et") {
+    return { 
+      status: "error", 
+      message: "Pilot registration is strictly restricted to Addis Ababa University (@aau.edu.et) students." 
+    };
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -62,6 +67,9 @@ async function registerAction(prevState: FormState, formData: FormData): Promise
   // Randomly assign an accent color from the gender-specific palette
   const themeColor = getRandomThemeColor(gender);
 
+  // Randomly assign a high quality avatar from the gender-specific collection
+  const avatarUrl = getRandomAvatar(gender);
+
   const user = await prisma.user.create({
     data: {
       email,
@@ -72,6 +80,7 @@ async function registerAction(prevState: FormState, formData: FormData): Promise
       planExpiresAt: null, // Trial starts on first use of the app
       gender,
       themeColor,
+      avatarUrl,
       banned: false,
     },
   });
@@ -106,6 +115,14 @@ async function registerAction(prevState: FormState, formData: FormData): Promise
 }
 
 export default async function RegisterPage() {
-  const universities = await prisma.university.findMany({ orderBy: { name: "asc" } });
+  const user = await getSessionUser();
+  if (user) {
+    redirect("/home");
+  }
+
+  const universities = await prisma.university.findMany({
+    where: { domain: "aau.edu.et" },
+    orderBy: { name: "asc" },
+  });
   return <AnimatedRegisterForm action={registerAction} universities={universities} />;
 }

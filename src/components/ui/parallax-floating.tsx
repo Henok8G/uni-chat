@@ -63,26 +63,27 @@ const Floating = ({
   }, [])
 
   useAnimationFrame(() => {
-    if (!containerRef.current) return
+    if (!containerRef.current) return;
 
     elementsMap.current.forEach((data) => {
-      const strength = (data.depth * sensitivity) / 20
+      const strength = (data.depth * sensitivity) / 20;
 
       // Calculate new target position
-      const newTargetX = mousePositionRef.current.x * strength
-      const newTargetY = mousePositionRef.current.y * strength
+      const newTargetX = mousePositionRef.current.x * strength;
+      const newTargetY = mousePositionRef.current.y * strength;
 
       // Check if we need to update
-      const dx = newTargetX - data.currentPosition.x
-      const dy = newTargetY - data.currentPosition.y
+      const dx = newTargetX - data.currentPosition.x;
+      const dy = newTargetY - data.currentPosition.y;
 
-      // Update position only if we're still moving
-      data.currentPosition.x += dx * easingFactor
-      data.currentPosition.y += dy * easingFactor
-
-      data.element.style.transform = `translate3d(${data.currentPosition.x}px, ${data.currentPosition.y}px, 0)`
-    })
-  })
+      // Only update when movement delta is non-trivial
+      if (Math.abs(dx) > 0.05 || Math.abs(dy) > 0.05) {
+        data.currentPosition.x += dx * easingFactor;
+        data.currentPosition.y += dy * easingFactor;
+        data.element.style.transform = `translate3d(${data.currentPosition.x.toFixed(2)}px, ${data.currentPosition.y.toFixed(2)}px, 0)`;
+      }
+    });
+  });
 
   return (
     <FloatingContext.Provider value={{ registerElement, unregisterElement }}>

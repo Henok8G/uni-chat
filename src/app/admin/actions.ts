@@ -5,23 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { Plan, ReportStatus } from "@prisma/client";
 import { logAnalyticsEvent, AnalyticsEventType } from "@/lib/analytics";
 
-async function requireAdmin() {
-  const user = await getSessionUser();
-  const adminEmail = process.env.ADMIN_EMAIL;
-  
-  if (!user) {
-    throw new Error("Not logged in");
-  }
-  
-  if (!adminEmail || user.email !== adminEmail) {
-    throw new Error("Unauthorized");
-  }
-  
-  return user;
-}
+import { requireAdminPermission } from "@/lib/auth";
+import { logAuditAction } from "@/lib/audit";
+import { TargetType, ModerationActionType } from "@prisma/client";
 
 export async function getUserByEmail(email: string) {
-  await requireAdmin();
+  const admin = await requireAdminPermission("MANAGE_USERS");
   
   const user = await prisma.user.findUnique({
     where: { email },
@@ -38,7 +27,7 @@ export async function getUserByEmail(email: string) {
 }
 
 export async function updateUserPlan(userId: string, plan: Plan, expiresAt: Date | null) {
-  await requireAdmin();
+  const admin = await requireAdminPermission("MANAGE_USERS");
   
   const updated = await prisma.user.update({
     where: { id: userId },
@@ -57,11 +46,19 @@ export async function updateUserPlan(userId: string, plan: Plan, expiresAt: Date
     universityId: updated.universityId || undefined,
   });
 
+  await logAuditAction({
+    adminId: admin.id,
+    action: "UPDATE_USER_PLAN",
+    targetType: TargetType.USER,
+    targetId: userId,
+    details: { plan, expiresAt },
+  });
+
   return updated;
 }
 
 export async function toggleUserBan(userId: string, banned: boolean) {
-  await requireAdmin();
+  const admin = await requireAdminPermission("MANAGE_USERS");
   
   const updated = await prisma.user.update({
     where: { id: userId },
@@ -80,17 +77,26 @@ export async function toggleUserBan(userId: string, banned: boolean) {
     });
   }
 
+  await logAuditAction({
+    adminId: admin.id,
+    action: banned ? "BAN_USER" : "UNBAN_USER",
+    targetType: TargetType.USER,
+    targetId: userId,
+  });
+
   return updated;
 }
 
 export async function getPendingReports() {
-  await requireAdmin();
+  await requireAdminPermission("MODERATE_REPORTS");
   const sortedReports = await prisma.report.findMany({
     where: { status: "OPEN" },
     include: {
       reporter: { select: { email: true, university: true } },
-      reportedUser: { select: { id: true, email: true, plan: true, banned: true, _count: { select: { reportsReceived: true } } } },
-      chatSession: { select: { startedAt: true, endedAt: true, endedReason: true } }
+      reportedUser: { select: { id: true, email: true, plan: true, banned: true, warningCount: true, restrictedUntil: true, _count: { select: { reportsReceived: true } } } },
+      chatSession: { select: { startedAt: true, endedAt: true, endedReason: true } },
+      reportedPost: { select: { id: true, title: true, contentType: true } },
+      reportedGroup: { select: { id: true, name: true } },
     },
     orderBy: { createdAt: "desc" }
   });
@@ -98,7 +104,7 @@ export async function getPendingReports() {
 }
 
 export async function resolveReport(reportId: string, action: "DISMISS" | "WARN" | "BAN", notes: string) {
-  const admin = await requireAdmin();
+  const admin = await requireAdminPermission("MODERATE_REPORTS");
   const report = await prisma.report.findUnique({ where: { id: reportId }, include: { reportedUser: true } });
   if (!report) throw new Error("Report not found");
 
@@ -107,15 +113,41 @@ export async function resolveReport(reportId: string, action: "DISMISS" | "WARN"
       where: { id: report.reportedUserId },
       data: { banned: true }
     });
+
+    await prisma.moderationAction.create({
+      data: {
+        userId: report.reportedUserId,
+        adminId: admin.id,
+        actionType: ModerationActionType.BAN,
+        reason: notes || "Banned via report resolution",
+        reportId: reportId,
+      }
+    });
+  } else if (action === "WARN") {
+    await prisma.user.update({
+      where: { id: report.reportedUserId },
+      data: { warningCount: { increment: 1 } }
+    });
+
+    await prisma.moderationAction.create({
+      data: {
+        userId: report.reportedUserId,
+        adminId: admin.id,
+        actionType: ModerationActionType.WARNING,
+        reason: notes || "Warned via report resolution",
+        reportId: reportId,
+      }
+    });
   }
 
   const updated = await prisma.report.update({
     where: { id: reportId },
     data: {
       status: action === "DISMISS" ? "DISMISSED" : "ACTION_TAKEN",
+      resolved: true,
       resolutionNotes: notes,
       handledByAdminId: admin.id,
-      actionTaken: action // legacy field support
+      actionTaken: action
     }
   });
 
@@ -125,11 +157,19 @@ export async function resolveReport(reportId: string, action: "DISMISS" | "WARN"
     properties: { action },
   });
 
+  await logAuditAction({
+    adminId: admin.id,
+    action: `RESOLVE_REPORT_${action}`,
+    targetType: TargetType.USER,
+    targetId: report.reportedUserId,
+    details: { reportId, action, notes },
+  });
+
   return updated;
 }
 
 export async function getAnalyticsSummary() {
-  await requireAdmin();
+  await requireAdminPermission();
 
   // Aggregate stats from the last 30 days
   const thirtyDaysAgo = new Date();

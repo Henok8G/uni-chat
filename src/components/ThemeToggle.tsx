@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Sun, Moon } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { toggleThemeMode } from "@/lib/themeTransition"
 
 export function ThemeToggle() {
   const [isDark, setIsDark] = useState(false)
@@ -12,7 +13,7 @@ export function ThemeToggle() {
     setMounted(true)
     // Read persisted preference; default to light
     const stored = localStorage.getItem("theme")
-    const prefersDark = stored === "dark"
+    const prefersDark = stored === "dark" || document.documentElement.classList.contains("dark")
     setIsDark(prefersDark)
     if (prefersDark) {
       document.documentElement.classList.add("dark")
@@ -21,19 +22,15 @@ export function ThemeToggle() {
     }
   }, [])
 
-  const toggle = () => {
+  const toggle = (e: React.MouseEvent) => {
     const next = !isDark
-    setIsDark(next)
-    if (next) {
-      document.documentElement.classList.add("dark")
-      localStorage.setItem("theme", "dark")
-    } else {
-      document.documentElement.classList.remove("dark")
-      localStorage.setItem("theme", "light")
-    }
+    toggleThemeMode(next, e, () => {
+      setIsDark(next)
+    })
   }
 
   if (!mounted) return null
+
 
   return (
     <button

@@ -23,6 +23,8 @@ import { logInfo, logWarn, logError } from "../lib/logger";
 import { metrics, incrementMetric, decrementMetric } from "../lib/metrics";
 import { MATCH_START_RATE_LIMIT_PER_MINUTE } from "../config/limits";
 import { prisma } from "../lib/prisma";
+import { Gender } from "@prisma/client";
+import { resolveUserAvatar } from "../lib/avatars";
 import { createRedisClients } from "../config/redis";
 import { logAnalyticsEvent, AnalyticsEventType } from "../lib/analytics";
 
@@ -92,13 +94,23 @@ export async function initSocket(httpServer: http.Server): Promise<void> {
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     /** Emit match callback – join both sockets to the room and notify them */
-    const emitMatch = (roomId: string, socketA: string, socketB: string, chatSessionId: string) => {
-      io.sockets.sockets.get(socketA)?.join(roomId);
-      io.sockets.sockets.get(socketB)?.join(roomId);
-      io.to(socketA).emit("match_found", { roomId, chatSessionId, isInitiator: true });
-      io.to(socketB).emit("match_found", { roomId, chatSessionId, isInitiator: false });
+    const emitMatch = (roomId: string, userA: SearchingUser, userB: SearchingUser, chatSessionId: string) => {
+      io.sockets.sockets.get(userA.socketId)?.join(roomId);
+      io.sockets.sockets.get(userB.socketId)?.join(roomId);
+      io.to(userA.socketId).emit("match_found", {
+        roomId,
+        chatSessionId,
+        isInitiator: true,
+        partner: userB.profile,
+      });
+      io.to(userB.socketId).emit("match_found", {
+        roomId,
+        chatSessionId,
+        isInitiator: false,
+        partner: userA.profile,
+      });
       incrementMetric("activeChatSessions");
-      logInfo("Socket", "Match found", { roomId, chatSessionId, socketA, socketB });
+      logInfo("Socket", "Match found", { roomId, chatSessionId, socketA: userA.socketId, socketB: userB.socketId });
     };
 
     const emitNoMatch = (socketId: string) => {
@@ -117,7 +129,7 @@ export async function initSocket(httpServer: http.Server): Promise<void> {
 
         const dbUser = await prisma.user.findUnique({
           where: { id: userPayload.userId },
-          select: { id: true, banned: true },
+          include: { university: true },
         });
         if (!dbUser) {
           logWarn("Socket", "join_queue rejected: user not found", { userId: userPayload.userId });
@@ -136,7 +148,58 @@ export async function initSocket(httpServer: http.Server): Promise<void> {
           return;
         }
 
+        const emailFallbackName = dbUser.email
+          .split("@")[0]
+          .replace(/[._]/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+
+        const displayName = dbUser.displayName || userPayload.profile?.name || emailFallbackName;
+        const avatarUrl =
+          dbUser.avatarUrl ||
+          resolveUserAvatar({
+            id: dbUser.id,
+            email: dbUser.email,
+            displayName,
+            gender: dbUser.gender,
+            emailVerified: dbUser.emailVerified ?? true,
+            role: dbUser.role || "STUDENT",
+          });
+
         userPayload.socketId = socket.id;
+        userPayload.department = dbUser.department || userPayload.profile?.department || null;
+        userPayload.year = dbUser.year ?? userPayload.profile?.year ?? null;
+        userPayload.hobbies = dbUser.hobbies?.length ? dbUser.hobbies : (userPayload.profile?.hobbies || []);
+        userPayload.gender = dbUser.gender;
+        userPayload.profile = {
+          userId: dbUser.id,
+          name: displayName,
+          avatar: avatarUrl,
+          bio: dbUser.bio ?? userPayload.profile?.bio ?? null,
+          university: dbUser.university?.name ?? userPayload.profile?.university ?? "Addis Ababa University",
+          department: dbUser.department || userPayload.profile?.department || "Student",
+          year: dbUser.year ?? userPayload.profile?.year ?? null,
+          hobbies: dbUser.hobbies?.length ? dbUser.hobbies : (userPayload.profile?.hobbies || []),
+          gender: dbUser.gender,
+          verified: dbUser.emailVerified ?? true,
+        };
+
+        // Normalize preferences if sent via legacy or new preference structure
+        if (!userPayload.preferences && (userPayload as any).prefGender) {
+          const rawGender = String((userPayload as any).prefGender).toUpperCase();
+          const pG = rawGender === "MALE" || rawGender === "FEMALE" ? (rawGender as Gender) : "ANY";
+          const rawYear = (userPayload as any).prefYear;
+          const parsedYear = rawYear && rawYear !== "any" ? parseInt(String(rawYear), 10) : NaN;
+          const rawHobby = (userPayload as any).prefHobby;
+          const rawCampus = (userPayload as any).prefCampus;
+
+          userPayload.preferences = {
+            preferredGender: pG,
+            preferredDepartments: rawCampus && rawCampus !== "any" ? [String(rawCampus)] : [],
+            preferredYears: !isNaN(parsedYear) ? [parsedYear] : [],
+            preferredHobbies: rawHobby && rawHobby !== "any" ? [String(rawHobby)] : [],
+          };
+        }
+
         enqueueUser(userPayload, emitMatch, emitNoMatch);
       } catch (err) {
         logError("Socket", "join_queue handler crashed", { error: String(err) });
@@ -249,6 +312,7 @@ export async function initSocket(httpServer: http.Server): Promise<void> {
           logWarn("Socket", "webrtc:offer rejected: socket not in room", { socketId: socket.id, roomId });
           return;
         }
+        logInfo("Socket", "Relaying webrtc:offer to peer", { socketId: socket.id, roomId });
         socket.to(roomId).emit("webrtc:offer", { roomId, sdp });
       } catch (err) {
         logError("Socket", "webrtc:offer handler crashed", { error: String(err) });
@@ -262,6 +326,7 @@ export async function initSocket(httpServer: http.Server): Promise<void> {
           logWarn("Socket", "webrtc:answer rejected: socket not in room", { socketId: socket.id, roomId });
           return;
         }
+        logInfo("Socket", "Relaying webrtc:answer to peer", { socketId: socket.id, roomId });
         socket.to(roomId).emit("webrtc:answer", { roomId, sdp });
       } catch(err) {
         logError("Socket", "webrtc:answer handler crashed", { error: String(err) });

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { logAnalyticsEvent, AnalyticsEventType } from "@/lib/analytics";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { getRandomAvatar } from "@/lib/avatars";
 
 type SearchParams = Promise<{ token?: string }> | { token?: string };
 
@@ -33,9 +34,14 @@ async function verifyToken(token: string | undefined) {
     };
   }
 
+  const avatarUrl = record.user.avatarUrl || getRandomAvatar(record.user.gender);
+
   await prisma.user.update({
     where: { id: record.userId },
-    data: { emailVerified: true },
+    data: {
+      emailVerified: true,
+      avatarUrl,
+    },
   });
 
   logAnalyticsEvent(AnalyticsEventType.USER_VERIFIED, {
@@ -48,7 +54,7 @@ async function verifyToken(token: string | undefined) {
     data: { usedAt: new Date() },
   });
 
-  redirect("/payment?verified=1");
+  redirect("/home");
 }
 
 export default async function VerifyPage({

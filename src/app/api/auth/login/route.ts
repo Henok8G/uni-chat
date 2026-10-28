@@ -54,19 +54,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Smart post-login redirect:
-  // Verified + paid plan (STANDARD / PRO) → /app
-  //   planExpiresAt null  = lifetime / admin-granted plan (no expiry) → allowed
-  //   planExpiresAt set   = must not be in the past
-  // Everyone else (unverified, FREE, expired) → /payment
-  const planIsActive =
-    user.plan !== "FREE" &&
-    (user.planExpiresAt === null || user.planExpiresAt > new Date());
-
-  const hasActivePlan = user.emailVerified && planIsActive;
-
-  const appUrl = new URL("/app", request.url);
-  const response = NextResponse.redirect(hasActivePlan ? appUrl : paymentUrl);
+  const fromParam = request.nextUrl.searchParams.get("from") || (formData.get("from") as string | null);
+  let redirectPath = "/home";
+  if (fromParam && fromParam.startsWith("/") && !fromParam.startsWith("//") && !fromParam.startsWith("/auth")) {
+    if (fromParam !== "/" && fromParam !== "/app") {
+      redirectPath = fromParam;
+    }
+  }
+  const destinationUrl = new URL(redirectPath, request.url);
+  const response = NextResponse.redirect(destinationUrl);
 
   const cookieStore = response.cookies;
   const token = await (async () => {

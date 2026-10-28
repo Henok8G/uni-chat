@@ -1,10 +1,19 @@
-// TODO(interface changes): allow the user to edit department, year (2-5), and hobbies for better matching.
+import { permanentRedirect } from "next/navigation";
 
-export default function ProfilePage() {
-  return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold">Profile Settings</h1>
-      <p className="mt-4 text-zinc-600">Profile editing will be available in a future update.</p>
-    </div>
-  );
+export default async function LegacyAppProfilePage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedParams = searchParams ? await searchParams : {};
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(resolvedParams)) {
+    if (Array.isArray(value)) {
+      value.forEach((v) => query.append(key, v));
+    } else if (value !== undefined) {
+      query.set(key, value);
+    }
+  }
+  const queryString = query.toString();
+  permanentRedirect(queryString ? `/profile?${queryString}` : "/profile");
 }

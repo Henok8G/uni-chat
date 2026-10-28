@@ -1,0 +1,22 @@
+{
+  "snapshotTimestamp": "2026-10-13T15:51:51.150Z",
+  "sourceTable": "MatchingConfig",
+  "recordId": "active",
+  "recordVersion": 8,
+  "data": {
+    "id": "active",
+    "version": 8,
+    "crossGenderCooldown": true,
+    "proximityBiasWeight": 75,
+    "dailyMatchCap": 12,
+    "freshmanMentorshipEnabled": true,
+    "academicWeight": 40,
+    "projectWeight": 25,
+    "mentorshipWeight": 20,
+    "hobbiesWeight": 15,
+    "algorithmModel": "Rule-Based Heuristic v1.0 (Cosine Hobbies & Dept Matrix)",
+    "updatedById": "cmoib0o9k0007c1erfslvw9e0",
+    "updatedAt": "2026-10-12T16:57:58.826Z",
+    "createdAt": "2026-10-12T13:16:55.077Z"
+  }
+}

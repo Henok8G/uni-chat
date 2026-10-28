@@ -1,0 +1,50 @@
+import {
+  CampusClusterNode,
+} from './types';
+
+export const INITIAL_CLUSTER_NODES: CampusClusterNode[] = [
+  {
+    id: 'node-4k',
+    name: '4 Kilo Campus (Natural & Computational Sciences)',
+    campusCode: '4K-CNCS',
+    departmentCluster: 'Computer Science, Mathematics, Physics, Chemistry, Biology',
+    status: 'Active Logical Partition',
+    departmentsCount: 2,
+    activeStudentsCount: 4,
+    isPrimaryPartition: true,
+    geographicNote: 'Arat Kilo, King George VI St.',
+  },
+  {
+    id: 'node-5k',
+    name: '5 Kilo Campus (AAiT - Technology & Engineering)',
+    campusCode: '5K-AAiT',
+    departmentCluster: 'Software, Electrical, Civil, Mechanical, Chemical Engineering',
+    status: 'Active Logical Partition',
+    departmentsCount: 1,
+    activeStudentsCount: 3,
+    isPrimaryPartition: false,
+    geographicNote: 'Amist Kilo, King George VI St.',
+  },
+  {
+    id: 'node-6k',
+    name: 'Sidist Kilo Campus (Main & Humanities / Social Sciences)',
+    campusCode: '6K-MAIN',
+    departmentCluster: 'Law, Social Sciences, Language Studies, Journalism, Architecture',
+    status: 'Active Logical Partition',
+    departmentsCount: 1,
+    activeStudentsCount: 1,
+    isPrimaryPartition: false,
+    geographicNote: 'Sidist Kilo, Yekatit 12 Square',
+  },
+  {
+    id: 'node-tikur',
+    name: 'Black Lion Campus (Tikur Anbessa - Health Sciences)',
+    campusCode: 'BL-CHS',
+    departmentCluster: 'School of Medicine, Nursing, Pharmacy, Public Health',
+    status: 'Active Logical Partition',
+    departmentsCount: 1,
+    activeStudentsCount: 1,
+    isPrimaryPartition: false,
+    geographicNote: 'Tikur Anbessa Specialized Hospital, Churchill Ave',
+  },
+];

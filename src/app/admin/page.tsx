@@ -1,6 +1,7 @@
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, hasAdminPermission } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { AdminPanel } from "./AdminPanel";
+import { AdminCockpit } from "./AdminCockpit";
+import { getAdminOverviewStats } from "./overviewActions";
 
 export default async function AdminPage() {
   const user = await getSessionUser();
@@ -8,33 +9,47 @@ export default async function AdminPage() {
     redirect("/auth/login");
   }
 
-  const adminEmail = process.env.ADMIN_EMAIL;
-  if (!adminEmail || user.email !== adminEmail) {
-    redirect("/"); // Or redirect to a 403 page
+  const isAllowed = await hasAdminPermission(user.id);
+  if (!isAllowed) {
+    redirect("/");
+  }
+
+  const isSuperAdmin =
+    user.role === "SUPER_ADMIN" ||
+    (!!process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL);
+
+  const assignedPermissions = user.adminRoleAssignments?.flatMap((a) => a.permissions) || [];
+  const effectivePermissions: string[] = isSuperAdmin
+    ? ["ALL"]
+    : Array.from(
+        new Set([
+          ...assignedPermissions,
+          ...(user.role === "ADMIN" ? ["ALL"] : []),
+          ...(user.role === "MODERATOR" ? ["MODERATE_REPORTS", "VIEW_AUDIT_LOGS"] : []),
+          ...(user.role === "CONTENT_ADMIN" ? ["MANAGE_CONTENT", "REVIEW_POST_READY"] : []),
+          ...(user.role === "ORG_ADMIN" ? ["MANAGE_CLUBS", "MANAGE_GROUPS"] : []),
+        ])
+      );
+
+  let stats;
+  try {
+    stats = await getAdminOverviewStats();
+  } catch {
+    stats = undefined;
   }
 
   return (
-    <div className="flex min-h-screen bg-zinc-50 px-4 py-12 dark:bg-black">
-      <main className="mx-auto w-full max-w-4xl">
-        <div className="mb-8 flex items-end justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-              Admin Dashboard
-            </h1>
-            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-              Search and manage user plans, roles, and ban statuses.
-            </p>
-          </div>
-          <a
-             href="/api/auth/logout"
-             className="text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-          >
-             Log out
-          </a>
-        </div>
-
-        <AdminPanel />
-      </main>
-    </div>
+    <AdminCockpit
+      currentUser={{
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        department: user.department,
+        permissions: effectivePermissions,
+        isSuperAdmin,
+      }}
+      initialStats={stats}
+    />
   );
 }

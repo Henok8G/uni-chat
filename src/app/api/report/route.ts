@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { logInfo, logWarn, logError } from "@/lib/logger";
 import { incrementMetric } from "@/lib/metrics";
 import { MAX_REPORTS_PER_HOUR } from "@/config/limits";
-import { ReasonCategory } from "@prisma/client";
+import { ReasonCategory, TargetType } from "@prisma/client";
 import { logAnalyticsEvent, AnalyticsEventType } from "@/lib/analytics";
 
 export async function POST(req: Request) {
@@ -12,9 +12,9 @@ export async function POST(req: Request) {
     const user = await getSessionUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { chatSessionId, reasonCategory, details } = await req.json();
+    const { chatSessionId, targetType, targetId, postId, groupId, reportedUserId: reqReportedUserId, reasonCategory, details } = await req.json();
 
-    if (!chatSessionId || !reasonCategory) {
+    if (!reasonCategory || (!chatSessionId && !targetType)) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -34,34 +34,49 @@ export async function POST(req: Request) {
       );
     }
 
-    const session = await prisma.chatSession.findUnique({
-      where: { id: chatSessionId }
-    });
+    let targetReportedUserId = reqReportedUserId;
+    let actualTargetType: TargetType = targetType || TargetType.CHAT_SESSION;
 
-    if (!session) {
-      return NextResponse.json({ error: "Chat session not found" }, { status: 404 });
+    if (chatSessionId) {
+      const session = await prisma.chatSession.findUnique({
+        where: { id: chatSessionId }
+      });
+
+      if (!session) {
+        return NextResponse.json({ error: "Chat session not found" }, { status: 404 });
+      }
+
+      if (session.userAId !== user.id && session.userBId !== user.id) {
+        return NextResponse.json({ error: "You are not part of this session" }, { status: 403 });
+      }
+
+      targetReportedUserId = session.userAId === user.id ? session.userBId : session.userAId;
+      actualTargetType = TargetType.CHAT_SESSION;
+    } else if (postId) {
+      const post = await prisma.post.findUnique({ where: { id: postId } });
+      if (!post) return NextResponse.json({ error: "Post not found" }, { status: 404 });
+      targetReportedUserId = post.authorId;
+      actualTargetType = TargetType.POST;
+    } else if (groupId) {
+      const group = await prisma.group.findUnique({ where: { id: groupId } });
+      if (!group) return NextResponse.json({ error: "Group not found" }, { status: 404 });
+      targetReportedUserId = group.ownerId;
+      actualTargetType = TargetType.GROUP;
     }
 
-    if (session.userAId !== user.id && session.userBId !== user.id) {
-      return NextResponse.json({ error: "You are not part of this session" }, { status: 403 });
-    }
-
-    const reportedUserId = session.userAId === user.id ? session.userBId : session.userAId;
-
-    // Prevent duplicate reports for same session
-    const existing = await prisma.report.findFirst({
-      where: { chatSessionId, reporterId: user.id }
-    });
-
-    if (existing) {
-      return NextResponse.json({ error: "You already reported this session" }, { status: 400 });
+    if (!targetReportedUserId) {
+      return NextResponse.json({ error: "Reported user could not be resolved" }, { status: 400 });
     }
 
     const report = await prisma.report.create({
       data: {
         reporterId: user.id,
-        reportedUserId,
-        chatSessionId,
+        reportedUserId: targetReportedUserId,
+        targetType: actualTargetType,
+        targetId: targetId || postId || groupId || chatSessionId,
+        postId: postId || null,
+        groupId: groupId || null,
+        chatSessionId: chatSessionId || null,
         reasonCategory: reasonCategory as ReasonCategory,
         details,
       }

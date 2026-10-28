@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+**/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -19,6 +20,12 @@
 
 # production
 /build
+/dist
+
+# load test artifacts
+load_test_out.txt
+scratch_convert.js
+tsc_error.txt
 
 # misc
 .DS_Store
